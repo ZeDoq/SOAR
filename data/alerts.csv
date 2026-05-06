@@ -1,0 +1,3 @@
+ip,source,description,observed_at,tags
+198.51.100.17,sensor-delta,"Bruteforce on admin portal",2026-05-07T08:15:00Z,"auth;bruteforce"
+192.0.2.88,sensor-epsilon,"Suspicious DNS tunneling",2026-05-07T08:16:20Z,"dns;exfil"
