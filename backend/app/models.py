@@ -1,42 +1,62 @@
 """
-=====  数据模型定义  =====
-
-定义 API 请求/响应的 Pydantic 数据模型。
-Pydantic 负责自动进行数据校验和序列化。
+数据模型定义 — 含输入校验。
 """
 
+import re
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class AlertCreate(BaseModel):
-    """
-    告警创建请求模型。
-
-    当安全传感器检测到异常活动时，会生成一个告警对象。
-    这是整个 SOAR 工作流的触发点。
-
-    Attributes:
-        ip: 触发告警的源 IP 地址
-        source: 告警来源（如传感器名称、日志源）
-        description: 告警描述信息
-        observed_at: 观测时间（ISO 8601 格式）
-        tags: 标签列表，用于分类和筛选
-    """
+    """告警创建请求（含 IP 格式校验）。"""
     ip: str
     source: str = "local"
     description: str = ""
     observed_at: Optional[str] = None
     tags: List[str] = Field(default_factory=list)
 
+    @field_validator("ip")
+    @classmethod
+    def validate_ip(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("IP 不能为空")
+        if len(v) > 255:
+            raise ValueError("IP 长度过长")
+        # 允许 IPv4、IPv6、域名格式
+        ipv4_re = re.compile(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
+        if ipv4_re.match(v):
+            parts = v.split(".")
+            for p in parts:
+                if int(p) > 255:
+                    raise ValueError(f"无效的 IPv4 地址: {v}")
+            return v
+        # IPv6 简单校验
+        if ":" in v and len(v) <= 45:
+            return v
+        # 域名格式
+        domain_re = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?$")
+        if domain_re.match(v) and len(v) <= 253:
+            return v
+        raise ValueError(f"无效的 IP 地址或域名: {v}")
+
+    @field_validator("source")
+    @classmethod
+    def validate_source(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) > 100:
+            raise ValueError("来源名称过长")
+        return v
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, v: str) -> str:
+        if len(v) > 2000:
+            return v[:2000]
+        return v
+
 
 class RunRequest(BaseModel):
-    """
-    剧本执行请求模型。
-
-    用户选择一个告警后，通过此模型触发对该告警的安全响应剧本。
-
-    Attributes:
-        alert_id: 要处理的告警 ID，关联到 alerts 表中的记录
-    """
+    """剧本执行请求。"""
     alert_id: int
+    mode: str = "classic"

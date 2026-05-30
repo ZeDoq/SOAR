@@ -1,72 +1,223 @@
 """
-=====  威胁情报查询服务（模拟）  =====
+=====  威胁情报查询服务  =====
 
-在真实 SOAR 系统中，此模块会集成外部威胁情报 API 如：
-  - VirusTotal：文件/URL/IP 信誉查询
-  - AlienVault OTX：开放威胁情报
-  - IBM X-Force Exchange：安全威胁情报
-  - MISP（Malware Information Sharing Platform）
+支持多源情报聚合查询：
+  - VirusTotal：IP 信誉查询（真实 API，需 API Key）
+  - AbuseIPDB：IP 滥用信誉查询（真实 API，需 API Key）
+  - 模拟引擎：内置确定性模拟数据（始终可用作为兜底）
 
-本实现使用模拟数据，通过 IP 地址的数值特征计算"信誉评分"，
-演示了 Agent 如何调用外部情报源获取上下文信息。
+当没有配置任何 API Key 时，系统自动降级为纯模拟模式，
+保证在任何环境下都能正常运行。
 """
 
+import logging
 import time
-from typing import Dict
+from typing import Any, Dict, List, Optional
+
+from .. import settings as settings_mod
+
+logger = logging.getLogger(__name__)
+
+# 信誉等级优先级（越大越危险）
+_REPUTATION_RANK = {"benign": 0, "suspicious": 1, "malicious": 2}
 
 
-def lookup(ip: str, latency_ms: int) -> Dict[str, object]:
+def _simulated_lookup(ip: str, latency_ms: int) -> Dict[str, Any]:
     """
-    查询指定 IP 地址的威胁情报信息。
+    模拟威胁情报查询（原有逻辑）。
 
-    计算逻辑：
-      1. 将 IP 地址的每个段（如 192.168.1.1 的 192, 168, 1, 1）求和
-      2. 对 100 取模得到一个 0-99 的信号值（signal）
-      3. 根据信号值判断信誉等级：
-         - signal >= 70: 恶意（malicious），置信度 0.92
-         - signal >= 40: 可疑（suspicious），置信度 0.68
-         - signal <  40: 良性（benign），置信度 0.35
-
-    这种模拟方式虽然简单，但保证了：
-      - 同一 IP 总是返回相同结果（确定性）
-      - 不同 IP 有不同的信誉值（区分度）
-
-    Args:
-        ip: 要查询的目标 IP 地址
-        latency_ms: 模拟网络延迟（毫秒），使模拟更真实
-
-    Returns:
-        包含 IP 信誉信息的字典：
-        {
-            "ip": 目标 IP,
-            "reputation": 信誉等级（malicious/suspicious/benign）,
-            "confidence": 置信度（0-1）,
-            "signal": 原始信号值（0-99）,
-            "sources": 情报来源列表
-        }
+    使用 IP 地址的数字特征生成确定性"信誉评分"。
     """
-    # 模拟 API 调用延迟
     time.sleep(latency_ms / 1000.0)
 
-    # 使用 IP 地址的数字特征生成"信号"值
     parts = [int(part) for part in ip.split(".") if part.isdigit()]
     signal = sum(parts) % 100
 
-    # 根据信号值判定信誉等级
     if signal >= 70:
-        reputation = "malicious"      # 恶意
+        reputation = "malicious"
         confidence = 0.92
     elif signal >= 40:
-        reputation = "suspicious"     # 可疑
+        reputation = "suspicious"
         confidence = 0.68
     else:
-        reputation = "benign"         # 良性
+        reputation = "benign"
         confidence = 0.35
 
     return {
-        "ip": ip,
+        "source": "simulated",
         "reputation": reputation,
         "confidence": confidence,
         "signal": signal,
-        "sources": ["sim_feed_alpha", "sim_feed_beta"],  # 模拟情报来源
     }
+
+
+def _query_virustotal(ip: str, api_key: str) -> Optional[Dict[str, Any]]:
+    """
+    查询 VirusTotal v3 API 获取 IP 信誉。
+
+    归一化逻辑：
+      - malicious > 0  → malicious，置信度 = malicious / total
+      - suspicious > 0 → suspicious，置信度 = suspicious / total
+      - 其他           → benign，置信度 = 0.3
+    """
+    if not api_key:
+        return None
+
+    try:
+        import httpx
+    except ImportError:
+        logger.warning("httpx 未安装，无法查询 VirusTotal")
+        return None
+
+    try:
+        url = f"https://www.virustotal.com/api/v3/ip_addresses/{ip}"
+        headers = {"x-apikey": api_key}
+        resp = httpx.get(url, headers=headers, timeout=15.0)
+        resp.raise_for_status()
+
+        data = resp.json()
+        stats = data.get("data", {}).get("attributes", {}).get("last_analysis_stats", {})
+        malicious = stats.get("malicious", 0)
+        suspicious = stats.get("suspicious", 0)
+        total = sum(stats.values()) if stats else 1
+
+        if malicious > 0:
+            reputation = "malicious"
+            confidence = round(malicious / total, 2)
+        elif suspicious > 0:
+            reputation = "suspicious"
+            confidence = round(suspicious / total, 2)
+        else:
+            reputation = "benign"
+            confidence = 0.3
+
+        signal = min(100, int((malicious + suspicious) / total * 100)) if total > 0 else 0
+
+        return {
+            "source": "virustotal",
+            "reputation": reputation,
+            "confidence": confidence,
+            "signal": signal,
+        }
+    except Exception as e:
+        logger.warning("VirusTotal 查询失败 (%s): %s", ip, e)
+        return None
+
+
+def _query_abuseipdb(ip: str, api_key: str) -> Optional[Dict[str, Any]]:
+    """
+    查询 AbuseIPDB v2 API 获取 IP 滥用信誉。
+
+    归一化逻辑：
+      - abuseConfidenceScore >= 50 → malicious
+      - abuseConfidenceScore >= 10 → suspicious
+      - 其他                       → benign
+    """
+    if not api_key:
+        return None
+
+    try:
+        import httpx
+    except ImportError:
+        logger.warning("httpx 未安装，无法查询 AbuseIPDB")
+        return None
+
+    try:
+        url = "https://api.abuseipdb.com/api/v2/check"
+        headers = {"Key": api_key, "Accept": "application/json"}
+        params = {"ipAddress": ip, "maxAgeInDays": "90"}
+        resp = httpx.get(url, headers=headers, params=params, timeout=15.0)
+        resp.raise_for_status()
+
+        data = resp.json().get("data", {})
+        score = data.get("abuseConfidenceScore", 0)
+
+        if score >= 50:
+            reputation = "malicious"
+        elif score >= 10:
+            reputation = "suspicious"
+        else:
+            reputation = "benign"
+
+        return {
+            "source": "abuseipdb",
+            "reputation": reputation,
+            "confidence": round(score / 100, 2),
+            "signal": score,
+        }
+    except Exception as e:
+        logger.warning("AbuseIPDB 查询失败 (%s): %s", ip, e)
+        return None
+
+
+def _aggregate(results: List[Dict[str, Any]], ip: str) -> Dict[str, Any]:
+    """
+    聚合多个情报源结果。
+
+    策略：
+      - reputation：取最危险的（malicious > suspicious > benign）
+      - confidence：所有来源的平均值
+      - signal：所有来源的平均值
+      - sources：来源名称列表
+      - per_source：各来源详细结果
+    """
+    if not results:
+        return {
+            "ip": ip,
+            "reputation": "benign",
+            "confidence": 0.0,
+            "signal": 0,
+            "sources": [],
+            "per_source": [],
+        }
+
+    # 取最危险的信誉等级
+    worst = max(results, key=lambda r: _REPUTATION_RANK.get(r.get("reputation", "benign"), 0))
+
+    avg_confidence = round(sum(r.get("confidence", 0) for r in results) / len(results), 2)
+    avg_signal = round(sum(r.get("signal", 0) for r in results) / len(results))
+    source_names = [r.get("source", "unknown") for r in results]
+
+    return {
+        "ip": ip,
+        "reputation": worst["reputation"],
+        "confidence": avg_confidence,
+        "signal": avg_signal,
+        "sources": source_names,
+        "per_source": results,
+    }
+
+
+def lookup(ip: str, latency_ms: int) -> Dict[str, Any]:
+    """
+    查询指定 IP 的威胁情报信息（多源聚合）。
+
+    保持与旧版完全相同的函数签名和返回格式，确保向后兼容。
+    新增 per_source 字段提供各来源的详细结果。
+
+    Args:
+        ip: 目标 IP 地址
+        latency_ms: 模拟延迟（仅对模拟数据生效）
+
+    Returns:
+        聚合后的威胁情报字典
+    """
+    settings = settings_mod.settings
+    results: List[Dict[str, Any]] = []
+
+    # 1. 查询 VirusTotal
+    vt_result = _query_virustotal(ip, settings.virustotal_api_key)
+    if vt_result:
+        results.append(vt_result)
+
+    # 2. 查询 AbuseIPDB
+    ab_result = _query_abuseipdb(ip, settings.abuseipdb_api_key)
+    if ab_result:
+        results.append(ab_result)
+
+    # 3. 始终包含模拟数据作为基线
+    sim_result = _simulated_lookup(ip, latency_ms)
+    results.append(sim_result)
+
+    # 4. 聚合所有结果
+    return _aggregate(results, ip)

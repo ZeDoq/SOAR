@@ -33,8 +33,29 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from .routes import alerts, runs
+from .routes import alerts, auth, graph, knowledge, models, runs, simulator, sources
 from .storage import init_db
+from .logging_config import setup_logging
+from .ingestion.manager import start_configured_sources, stop_all_sources
+
+from contextlib import asynccontextmanager
+import os
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期管理：启动时启动告警源和知识图谱，关闭时停止。"""
+    start_configured_sources()
+    # 初始化知识图谱
+    try:
+        from .graph.knowledge_graph import graph
+        from .graph.populator import populate_from_database, populate_techniques
+        populate_techniques(graph)
+        populate_from_database(graph)
+    except Exception:
+        pass  # graph 模块不可用时静默跳过
+    yield
+    stop_all_sources()
 
 
 def create_app() -> FastAPI:
@@ -49,13 +70,16 @@ def create_app() -> FastAPI:
     5. 挂载前端静态文件目录
     6. 添加 /health 健康检查端点
     """
-    app = FastAPI(title="Agent-Based SOAR Prototype", version="0.1.0")
+    app = FastAPI(title="Agent-Based SOAR Prototype", version="0.1.0", lifespan=lifespan)
+    setup_logging()
 
     # ---- CORS 配置 ----
-    # 允许所有来源的跨域请求，方便前后端分离开发
+    # 生产环境应通过环境变量 CORS_ORIGINS 指定允许的来源
+    cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000")
+    allowed_origins = [o.strip() for o in cors_origins.split(",") if o.strip()]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=allowed_origins,
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -64,20 +88,28 @@ def create_app() -> FastAPI:
     init_db()
 
     # ---- 注册 API 路由 ----
-    app.include_router(alerts.router)  # 告警相关接口（CRUD）
-    app.include_router(runs.router)    # 剧本执行相关接口
+    app.include_router(alerts.router)     # 告警相关接口（CRUD）
+    app.include_router(runs.router)       # 剧本执行相关接口
+    app.include_router(auth.router)       # 认证接口
+    app.include_router(knowledge.router)  # 知识库接口
+    app.include_router(sources.router)    # 告警源管理接口
+    app.include_router(graph.router)      # 知识图谱接口
+    app.include_router(simulator.router)  # 攻击模拟器接口
+    app.include_router(models.router)     # 模型提供商管理接口
 
-    # ---- 挂载前端静态文件 ----
-    # 从当前文件位置向上两级找到 frontend 目录
-    frontend_dir = Path(__file__).resolve().parents[2] / "frontend"
-    if frontend_dir.exists():
-        # 将静态文件挂载到根路径，支持 HTML5 History 模式
-        app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
-
+    # ---- 健康检查 ----
+    # 必须在静态文件挂载之前注册，否则会被 "/" 静态挂载拦截
     @app.get("/health")
     def health() -> dict:
         """健康检查端点，用于监控系统运行状态"""
         return {"status": "ok"}
+
+    # ---- 挂载前端静态文件 ----
+    # Vite 构建输出目录
+    frontend_dir = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+    if frontend_dir.exists():
+        # 将静态文件挂载到根路径，支持 HTML5 History 模式
+        app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
 
     return app
 

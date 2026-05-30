@@ -44,6 +44,37 @@ class Settings:
         # 用于模拟真实外部 API 调用的网络延迟
         self.simulated_latency_ms = int(os.getenv("SIMULATED_LATENCY_MS", "120"))
 
+        # ---- 威胁情报 API Keys (Phase 3A) ----
+        # VirusTotal（免费版: 4 次/分钟）
+        # 申请地址: https://www.virustotal.com/gui/my-apikey
+        self.virustotal_api_key = os.getenv("VIRUSTOTAL_API_KEY", "")
+
+        # AbuseIPDB（免费版: 1000 次/天）
+        # 申请地址: https://www.abuseipdb.com/account/api
+        self.abuseipdb_api_key = os.getenv("ABUSEIPDB_API_KEY", "")
+
+        # ---- 通知：邮件 SMTP (Phase 3D) ----
+        self.smtp_host = os.getenv("SMTP_HOST", "")
+        self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
+        self.smtp_user = os.getenv("SMTP_USER", "")
+        self.smtp_password = os.getenv("SMTP_PASSWORD", "")
+        self.smtp_from = os.getenv("SMTP_FROM", "")
+        self.smtp_to = os.getenv("SMTP_TO", "")  # 逗号分隔的收件人列表
+
+        # ---- 通知：Slack Webhook (Phase 3D) ----
+        self.slack_webhook_url = os.getenv("SLACK_WEBHOOK_URL", "")
+
+        # ---- 告警源：Syslog (Phase 3C) ----
+        self.syslog_port = int(os.getenv("SYSLOG_PORT", "514"))
+
+        # ---- 告警源：Wazuh (Phase 3C) ----
+        self.wazuh_api_url = os.getenv("WAZUH_API_URL", "")
+        self.wazuh_api_user = os.getenv("WAZUH_API_USER", "")
+        self.wazuh_api_password = os.getenv("WAZUH_API_PASSWORD", "")
+
+        # ---- 告警源：Suricata (Phase 3C) ----
+        self.suricata_eve_log = os.getenv("SURICATA_EVE_LOG", "")
+
 
 # 全局单例配置实例
 # 其他模块通过 from .settings import settings 来使用

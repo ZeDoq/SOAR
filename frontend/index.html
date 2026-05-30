@@ -1,54 +1,16 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>SOAR Control Room</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <div class="glow"></div>
-    <header class="hero">
-      <div>
-        <p class="eyebrow">Agent-Based SOAR</p>
-        <h1>Control Room</h1>
-        <p class="subtitle">
-          Simulated response pipeline for suspicious IP activity.
-        </p>
-      </div>
-      <div class="api-config">
-        <label for="apiBase">API Base</label>
-        <input id="apiBase" value="http://127.0.0.1:8000" />
-        <button id="refreshBtn">Refresh</button>
-      </div>
-    </header>
-
-    <main class="grid">
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Alerts</h2>
-          <button id="importBtn">Import Sample Alerts</button>
-        </div>
-        <ul id="alertsList" class="list"></ul>
-      </section>
-
-      <section class="panel">
-        <div class="panel-header">
-          <h2>Playbook Runs</h2>
-        </div>
-        <ul id="runsList" class="list"></ul>
-      </section>
-
-      <section class="panel wide">
-        <div class="panel-header">
-          <h2>Run Detail</h2>
-        </div>
-        <div id="runDetail" class="detail">
-          <p>Select an alert or run to view details.</p>
-        </div>
-      </section>
-    </main>
-
-    <script src="app.js"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SOAR // Security Operations Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&family=Share+Tech+Mono&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
 </html>

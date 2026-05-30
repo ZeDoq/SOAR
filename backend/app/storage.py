@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .settings import settings
+from . import settings as settings_mod
 
 
 def _utc_now() -> str:
@@ -30,7 +30,7 @@ def _utc_now() -> str:
 
 def _db_path() -> Path:
     """获取数据库文件路径（相对于项目根目录）"""
-    return settings.project_root / settings.database_path
+    return settings_mod.settings.project_root / settings_mod.settings.database_path
 
 
 def _connect() -> sqlite3.Connection:
@@ -102,6 +102,35 @@ def init_db() -> None:
             finished_at TEXT,                         -- 步骤完成时间
             detail TEXT,                              -- 步骤执行详情（JSON 格式）
             FOREIGN KEY(run_id) REFERENCES runs(id)
+        )
+        """
+    )
+
+    # ---- 用户表 ----
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+
+    # ---- 模型提供商表 ----
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS llm_providers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            provider_type TEXT NOT NULL,
+            base_url TEXT NOT NULL,
+            api_key TEXT NOT NULL,
+            model_name TEXT NOT NULL,
+            is_default INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
         )
         """
     )
@@ -410,3 +439,141 @@ def _decode_run(run: Dict[str, Any]) -> Dict[str, Any]:
         except json.JSONDecodeError:
             run["decision"] = decision
     return run
+
+
+# ==================== 用户（Users）操作 ====================
+
+
+def create_user(username: str, password_hash: str) -> Dict[str, Any]:
+    conn = _connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)",
+        (username, password_hash, _utc_now()),
+    )
+    conn.commit()
+    user_id = cursor.lastrowid
+    conn.close()
+    return {"id": user_id, "username": username}
+
+
+def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
+    conn = _connect()
+    cursor = conn.cursor()
+    row = cursor.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+# ==================== 模型提供商（LLM Providers）操作 ====================
+
+
+def _mask_api_key(key: str) -> str:
+    """脱敏 API Key：仅显示长度信息，不暴露实际字符。"""
+    if not key:
+        return ""
+    return "****" + str(len(key)) + "****"
+
+
+def create_provider(data: Dict[str, Any]) -> Dict[str, Any]:
+    """创建模型提供商配置。"""
+    now = _utc_now()
+    conn = _connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        """INSERT INTO llm_providers (name, provider_type, base_url, api_key, model_name, is_default, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        (data["name"], data["provider_type"], data["base_url"],
+         data["api_key"], data["model_name"], 1 if data.get("is_default") else 0, now, now),
+    )
+    conn.commit()
+    provider_id = cursor.lastrowid
+    conn.close()
+    return get_provider(provider_id)
+
+
+def list_providers() -> List[Dict[str, Any]]:
+    """列出所有提供商（API Key 脱敏）。"""
+    conn = _connect()
+    rows = conn.execute("SELECT * FROM llm_providers ORDER BY is_default DESC, id ASC").fetchall()
+    conn.close()
+    result = []
+    for row in rows:
+        d = dict(row)
+        d["api_key"] = _mask_api_key(d["api_key"])
+        result.append(d)
+    return result
+
+
+def get_provider(provider_id: int) -> Optional[Dict[str, Any]]:
+    """获取单个提供商（API Key 脱敏）。"""
+    conn = _connect()
+    row = conn.execute("SELECT * FROM llm_providers WHERE id = ?", (provider_id,)).fetchone()
+    conn.close()
+    if not row:
+        return None
+    d = dict(row)
+    d["api_key"] = _mask_api_key(d["api_key"])
+    return d
+
+
+def get_provider_raw(provider_id: int) -> Optional[Dict[str, Any]]:
+    """获取单个提供商（含完整 API Key，仅供内部调用）。"""
+    conn = _connect()
+    row = conn.execute("SELECT * FROM llm_providers WHERE id = ?", (provider_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_default_provider() -> Optional[Dict[str, Any]]:
+    """获取默认提供商（含完整 API Key，仅供内部调用）。"""
+    conn = _connect()
+    row = conn.execute("SELECT * FROM llm_providers WHERE is_default = 1 LIMIT 1").fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def update_provider(provider_id: int, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """更新提供商配置。api_key 为空字符串时不更新。"""
+    existing = get_provider_raw(provider_id)
+    if not existing:
+        return None
+    now = _utc_now()
+    conn = _connect()
+    cursor = conn.cursor()
+    api_key = data.get("api_key", "")
+    if not api_key:
+        api_key = existing["api_key"]
+    cursor.execute(
+        """UPDATE llm_providers SET name=?, provider_type=?, base_url=?, api_key=?,
+           model_name=?, is_default=?, updated_at=? WHERE id=?""",
+        (data.get("name", existing["name"]), data.get("provider_type", existing["provider_type"]),
+         data.get("base_url", existing["base_url"]), api_key,
+         data.get("model_name", existing["model_name"]),
+         1 if data.get("is_default") else 0, now, provider_id),
+    )
+    conn.commit()
+    conn.close()
+    return get_provider(provider_id)
+
+
+def delete_provider(provider_id: int) -> bool:
+    """删除提供商。"""
+    conn = _connect()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM llm_providers WHERE id = ?", (provider_id,))
+    deleted = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return deleted
+
+
+def set_default_provider(provider_id: int) -> None:
+    """将指定提供商设为默认（清除其他默认）。"""
+    conn = _connect()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE llm_providers SET is_default = 0")
+    cursor.execute("UPDATE llm_providers SET is_default = 1, updated_at = ? WHERE id = ?",
+                   (_utc_now(), provider_id))
+    conn.commit()
+    conn.close()
