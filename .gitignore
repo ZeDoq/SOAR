@@ -30,4 +30,5 @@ Thumbs.db
 # Frontend
 frontend/node_modules/
 frontend/dist/
+frontend_old/
 .claude/
