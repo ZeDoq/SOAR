@@ -34,4 +34,3 @@ frontend/.vite/
 frontend_old/
 .claude/
 CLAUDE.md
-.env.example
