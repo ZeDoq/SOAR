@@ -30,5 +30,8 @@ Thumbs.db
 # Frontend
 frontend/node_modules/
 frontend/dist/
+frontend/.vite/
 frontend_old/
 .claude/
+CLAUDE.md
+.env.example
