@@ -135,6 +135,74 @@ def init_db() -> None:
         """
     )
 
+    # ---- 辩论记录表 (Module 3) ----
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS debates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id INTEGER,
+            alert_id INTEGER,
+            started_at TEXT,
+            finished_at TEXT,
+            rounds TEXT,
+            verdicts TEXT,
+            consensus TEXT,
+            moderator_verdict TEXT
+        )
+        """
+    )
+
+    # ---- 情景记忆表 (Module 4) ----
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS episodes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            alert_id INTEGER,
+            run_id INTEGER,
+            ip TEXT,
+            description TEXT,
+            tags TEXT,
+            verdict TEXT,
+            confidence REAL,
+            risk_score INTEGER,
+            reasoning TEXT,
+            feedback TEXT DEFAULT '',
+            feedback_reason TEXT DEFAULT '',
+            searchable_text TEXT,
+            created_at TEXT
+        )
+        """
+    )
+
+    # ---- 反馈表 (Module 4) ----
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id INTEGER NOT NULL,
+            feedback TEXT NOT NULL,
+            reason TEXT DEFAULT '',
+            created_at TEXT
+        )
+        """
+    )
+
+    # ---- MCP 审计日志表 (Module 6) ----
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS mcp_audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            agent_role TEXT NOT NULL,
+            tool_name TEXT NOT NULL,
+            arguments TEXT,
+            result TEXT,
+            success INTEGER NOT NULL DEFAULT 1,
+            error TEXT DEFAULT '',
+            created_at TEXT
+        )
+        """
+    )
+
     conn.commit()
     conn.close()
 
@@ -469,10 +537,10 @@ def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
 
 
 def _mask_api_key(key: str) -> str:
-    """脱敏 API Key：仅显示长度信息，不暴露实际字符。"""
+    """脱敏 API Key：完全遮蔽，不泄露长度或任何字符。"""
     if not key:
         return ""
-    return "****" + str(len(key)) + "****"
+    return "********"
 
 
 def create_provider(data: Dict[str, Any]) -> Dict[str, Any]:

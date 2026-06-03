@@ -8,10 +8,16 @@ build/
 .venv/
 venv/
 .env
+.env.*
+!.env.example
 
-# Database
+# Database & runtime data
 data/*.db
 data/*.sqlite
+data/chromadb/
+data/enterprise-attack.json
+data/alerts.json
+data/alerts.csv
 
 # IDE
 .vscode/
@@ -31,7 +37,20 @@ Thumbs.db
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
+
+# Project specific
 frontend_old/
 .claude/
 CLAUDE.md
+
+# Test & cache
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# Docs (竞赛文档不上传到仓库)
 docs/
+
+# Docker
+docker-compose.override.yml

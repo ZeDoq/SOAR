@@ -146,6 +146,105 @@ SCENARIOS: Dict[str, Dict[str, Any]] = {
             "techniques": ["T1021", "T1059"],
         },
     },
+
+    # ---- Module 5: Multi-stage APT scenarios ----
+    "apt_lateral_movement": {
+        "name": "APT 横向移动攻击链",
+        "description": "模拟 APT 攻击的完整横向移动链：端口扫描 → 漏洞利用 → PowerShell 执行 → RDP 横向移动 → 数据外泄",
+        "attack_type": "apt_campaign",
+        "sequence_delay_seconds": 2,  # Delay between alerts for demo
+        "alerts": [
+            {
+                "ip": "203.0.113.50",
+                "source": "simulator",
+                "description": "Port scan: SYN packets to ports 445,3389,5985 on internal network",
+                "description_zh": "端口扫描：对内网 445,3389,5985 端口发送 SYN 包",
+                "tags": ["scan", "port", "discovery"],
+            },
+            {
+                "ip": "203.0.113.50",
+                "source": "simulator",
+                "description": "Exploit attempt: EternalBlue SMB vulnerability CVE-2017-0144",
+                "description_zh": "漏洞利用：永恒之蓝 SMB 漏洞 CVE-2017-0144",
+                "tags": ["exploit", "smb", "eternalblue"],
+            },
+            {
+                "ip": "203.0.113.50",
+                "source": "simulator",
+                "description": "PowerShell encoded command execution: download cradle from remote server",
+                "description_zh": "PowerShell 编码命令执行：从远程服务器下载恶意载荷",
+                "tags": ["powershell", "execution", "command"],
+            },
+            {
+                "ip": "203.0.113.50",
+                "source": "simulator",
+                "description": "RDP connection to internal server 10.0.1.15 using stolen credentials",
+                "description_zh": "使用窃取的凭据通过 RDP 连接内网服务器 10.0.1.15",
+                "tags": ["rdp", "lateral", "remote", "credential"],
+            },
+            {
+                "ip": "203.0.113.50",
+                "source": "simulator",
+                "description": "DNS tunnel exfiltration: high volume TXT queries to suspicious domain",
+                "description_zh": "DNS 隧道外泄：大量 TXT 查询发往可疑域名",
+                "tags": ["dns", "exfil", "tunnel", "data"],
+            },
+        ],
+        "expected_outcome": {
+            "action": "block",
+            "min_risk_score": 80,
+            "techniques": ["T1046", "T1190", "T1059", "T1021", "T1048"],
+        },
+    },
+
+    "supply_chain_attack": {
+        "name": "供应链攻击链",
+        "description": "模拟供应链攻击：钓鱼邮件 → 凭据窃取 → 内部侦察 → 数据库访问 → DNS 外泄",
+        "attack_type": "supply_chain",
+        "sequence_delay_seconds": 2,
+        "alerts": [
+            {
+                "ip": "198.51.100.20",
+                "source": "simulator",
+                "description": "Phishing email with credential harvesting link detected",
+                "description_zh": "检测到钓鱼邮件含凭据收集链接",
+                "tags": ["phishing", "email", "credential"],
+            },
+            {
+                "ip": "198.51.100.20",
+                "source": "simulator",
+                "description": "Credential stuffing attack: multiple accounts compromised",
+                "description_zh": "凭据填充攻击：多个账户被入侵",
+                "tags": ["credential", "account", "auth"],
+            },
+            {
+                "ip": "198.51.100.20",
+                "source": "simulator",
+                "description": "Internal network reconnaissance: LDAP query for admin accounts",
+                "description_zh": "内网侦察：LDAP 查询管理员账户",
+                "tags": ["discovery", "ldap", "recon"],
+            },
+            {
+                "ip": "198.51.100.20",
+                "source": "simulator",
+                "description": "Database access anomaly: bulk SELECT on customer data table",
+                "description_zh": "数据库访问异常：对客户数据表的大批量 SELECT 查询",
+                "tags": ["database", "collection", "data"],
+            },
+            {
+                "ip": "198.51.100.20",
+                "source": "simulator",
+                "description": "DNS exfiltration: encoded data in subdomain queries to new domain",
+                "description_zh": "DNS 外泄：编码数据通过子域名查询发送到新域名",
+                "tags": ["dns", "exfil", "tunnel"],
+            },
+        ],
+        "expected_outcome": {
+            "action": "block",
+            "min_risk_score": 85,
+            "techniques": ["T1566", "T1078", "T1082", "T1005", "T1048"],
+        },
+    },
 }
 
 

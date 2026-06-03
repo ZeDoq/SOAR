@@ -75,6 +75,12 @@ class Settings:
         # ---- 告警源：Suricata (Phase 3C) ----
         self.suricata_eve_log = os.getenv("SURICATA_EVE_LOG", "")
 
+        # ---- RAG 引擎配置 (Module 1) ----
+        self.embedding_model = os.getenv(
+            "EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
+        )
+        self.chromadb_path = os.getenv("CHROMADB_PATH", "data/chromadb")
+
 
 # 全局单例配置实例
 # 其他模块通过 from .settings import settings 来使用
