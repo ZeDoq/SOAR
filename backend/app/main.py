@@ -33,7 +33,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from .routes import alerts, auth, graph, knowledge, models, runs, simulator, sources
+from .routes import alerts, auth, chains, debates, feedback, graph, knowledge, mcp_routes, models, runs, simulator, sources
 from .storage import init_db
 from .logging_config import setup_logging
 from .ingestion.manager import start_configured_sources, stop_all_sources
@@ -44,7 +44,7 @@ import os
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """应用生命周期管理：启动时启动告警源和知识图谱，关闭时停止。"""
+    """应用生命周期管理：启动时启动告警源、知识图谱和RAG知识库，关闭时停止。"""
     start_configured_sources()
     # 初始化知识图谱
     try:
@@ -54,6 +54,20 @@ async def lifespan(app: FastAPI):
         populate_from_database(graph)
     except Exception:
         pass  # graph 模块不可用时静默跳过
+    # 初始化 RAG 知识库
+    try:
+        from .ai.attack_data_loader import load_attack_data
+        from .ai.incident_corpus import load_incident_corpus
+        load_attack_data()
+        load_incident_corpus()
+    except Exception:
+        pass  # RAG 模块不可用时静默跳过
+    # 注册 MCP 工具
+    try:
+        from .integrations.mcp_tools import register_all_tools
+        register_all_tools()
+    except Exception:
+        pass  # MCP 模块不可用时静默跳过
     yield
     stop_all_sources()
 
@@ -96,6 +110,10 @@ def create_app() -> FastAPI:
     app.include_router(graph.router)      # 知识图谱接口
     app.include_router(simulator.router)  # 攻击模拟器接口
     app.include_router(models.router)     # 模型提供商管理接口
+    app.include_router(debates.router)    # 多 Agent 辩论接口
+    app.include_router(feedback.router)   # 反馈与记忆接口
+    app.include_router(chains.router)     # 攻击链接口
+    app.include_router(mcp_routes.router) # MCP 工具协议接口
 
     # ---- 健康检查 ----
     # 必须在静态文件挂载之前注册，否则会被 "/" 静态挂载拦截

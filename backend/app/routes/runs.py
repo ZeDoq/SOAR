@@ -14,7 +14,7 @@ router = APIRouter(prefix="/runs", tags=["runs"])
 
 class RunRequest(BaseModel):
     alert_id: int
-    mode: Literal["classic", "adaptive"] = "classic"
+    mode: Literal["classic", "adaptive", "langgraph"] = "classic"
 
 
 @router.post("")
@@ -25,6 +25,9 @@ def start_run(request: RunRequest, background_tasks: BackgroundTasks,
     if request.mode == "adaptive":
         from ..agents.adaptive_orchestrator import execute_adaptive_playbook
         background_tasks.add_task(execute_adaptive_playbook, run["id"])
+    elif request.mode == "langgraph":
+        from ..agents.langgraph_orchestrator import execute_langgraph_playbook
+        background_tasks.add_task(execute_langgraph_playbook, run["id"])
     else:
         background_tasks.add_task(execute_playbook, run["id"])
     return {"run": run}
@@ -44,3 +47,10 @@ def get_run_detail(run_id: int, user: dict = Depends(get_current_user)) -> dict:
         raise HTTPException(status_code=404, detail="Run not found")
     steps = list_steps(run_id)
     return {"run": run, "steps": steps}
+
+
+@router.get("/langgraph/graph")
+def get_langgraph_structure(user: dict = Depends(get_current_user)) -> dict:
+    """获取 LangGraph 编排引擎的图结构（Mermaid 格式）。"""
+    from ..agents.langgraph_orchestrator import get_graph_mermaid
+    return {"mermaid": get_graph_mermaid()}

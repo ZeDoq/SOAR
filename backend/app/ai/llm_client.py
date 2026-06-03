@@ -171,8 +171,8 @@ def test_provider(provider_id: int) -> dict:
     try:
         from .. import storage
         provider = storage.get_provider_raw(provider_id)
-    except Exception as e:
-        return {"ok": False, "message": f"读取提供商配置失败: {e}", "model": None}
+    except Exception:
+        return {"ok": False, "message": "读取提供商配置失败", "model": None}
 
     if not provider:
         return {"ok": False, "message": "提供商不存在", "model": None}
@@ -201,6 +201,9 @@ def test_provider(provider_id: int) -> dict:
         return {"ok": True, "message": f"连接成功 (model={model})", "model": model}
     except Exception as e:
         err = str(e)
+        # 脱敏：移除可能泄露的 API Key
+        if api_key and api_key in err:
+            err = err.replace(api_key, "***")
         # 提供更友好的错误信息
         if "401" in err or "Unauthorized" in err or "auth" in err.lower():
             msg = "API Key 无效或已过期"

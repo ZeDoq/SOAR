@@ -1,7 +1,7 @@
-"""Lightweight security knowledge base using keyword matching.
+"""Security knowledge base with RAG-enhanced search.
 
-Uses built-in ATT&CK knowledge with simple keyword-based search.
-Falls back gracefully when external vector DB is unavailable.
+Primary: semantic search via ChromaDB vector store.
+Fallback: keyword matching with built-in ATT&CK knowledge.
 """
 
 import logging
@@ -55,8 +55,8 @@ def _tokenize(text: str) -> set:
     return set(re.findall(r'[a-z0-9一-鿿]+', text.lower()))
 
 
-def search(query: str, top_k: int = 3) -> List[dict]:
-    """Search knowledge base using keyword matching."""
+def _keyword_search(query: str, top_k: int = 3) -> List[dict]:
+    """Original keyword-based search (fallback)."""
     query_tokens = _tokenize(query)
     if not query_tokens:
         return []
@@ -78,18 +78,118 @@ def search(query: str, top_k: int = 3) -> List[dict]:
             "tactic": entry["tactic"],
             "description": entry["description"],
             "relevance": round(score, 2),
+            "source": "keyword",
         })
     return results
 
 
+def search(query: str, top_k: int = 3) -> List[dict]:
+    """Search knowledge base using RAG (primary) or keyword fallback.
+
+    Tries RAG hybrid search first. Falls back to keyword matching if
+    RAG is unavailable or returns no results.
+    """
+    # Try RAG search
+    try:
+        from . import rag_engine
+        results = rag_engine.hybrid_search(query, top_k=top_k, keyword_weight=0.3)
+        if results:
+            return [
+                {
+                    "id": r["metadata"].get("technique_id", r["id"]),
+                    "name": r["metadata"].get("name", ""),
+                    "tactic": r["metadata"].get("tactics", ""),
+                    "description": r["document"][:300],
+                    "relevance": r["relevance"],
+                    "source": "rag",
+                }
+                for r in results
+            ]
+    except Exception as e:
+        logger.debug("RAG search unavailable, using keyword fallback: %s", e)
+
+    # Fallback to keyword search
+    return _keyword_search(query, top_k)
+
+
 def get_context_for_alert(alert: dict) -> str:
-    """Get relevant knowledge context for an alert."""
+    """Get relevant knowledge context for an alert.
+
+    Uses RAG to retrieve ATT&CK techniques and similar incidents.
+    """
     query_parts = [alert.get("description", "")]
     query_parts.extend(alert.get("tags", []))
     query = " ".join(query_parts)
     if not query.strip():
         return ""
-    results = search(query, top_k=3)
+
+    results = search(query, top_k=5)
     if not results:
         return ""
-    return "\n".join(f"- [{r['id']}] {r['name']} ({r['tactic']}): {r['description']}" for r in results)
+
+    return "\n".join(
+        f"- [{r['id']}] {r['name']} ({r['tactic']}): {r['description'][:200]}"
+        for r in results
+    )
+
+
+def get_rich_context(alert: dict) -> dict:
+    """Get structured rich context including techniques and similar incidents.
+
+    Returns dict with keys: techniques, incidents, context_text.
+    """
+    query_parts = [alert.get("description", "")]
+    query_parts.extend(alert.get("tags", []))
+    query = " ".join(query_parts)
+    if not query.strip():
+        return {"techniques": [], "incidents": [], "context_text": ""}
+
+    techniques = []
+    incidents = []
+    try:
+        from . import rag_engine
+
+        # Search for techniques
+        tech_results = rag_engine.hybrid_search(
+            query, top_k=5, where={"type": "technique"}
+        )
+        for r in tech_results:
+            techniques.append({
+                "id": r["metadata"].get("technique_id", ""),
+                "name": r["metadata"].get("name", ""),
+                "tactic": r["metadata"].get("tactics", ""),
+                "description": r["document"][:300],
+                "relevance": r["relevance"],
+            })
+
+        # Search for similar incidents
+        inc_results = rag_engine.hybrid_search(
+            query, top_k=3, where={"type": "incident"}
+        )
+        for r in inc_results:
+            incidents.append({
+                "id": r["id"],
+                "description": r["document"][:300],
+                "attack_type": r["metadata"].get("attack_type", ""),
+                "severity": r["metadata"].get("severity", ""),
+                "relevance": r["relevance"],
+            })
+    except Exception as e:
+        logger.debug("RAG rich context unavailable: %s", e)
+
+    # Build combined context text
+    lines = []
+    if techniques:
+        lines.append("## 相关 ATT&CK 技术")
+        for t in techniques:
+            lines.append(f"- [{t['id']}] {t['name']} ({t['tactic']}): {t['description'][:150]}")
+    if incidents:
+        lines.append("\n## 相似历史事件")
+        for inc in incidents:
+            lines.append(f"- [{inc['attack_type']}] {inc['description'][:200]}")
+
+    return {
+        "techniques": techniques,
+        "incidents": incidents,
+        "context_text": "\n".join(lines),
+    }

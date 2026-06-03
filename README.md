@@ -1,108 +1,109 @@
 # SOAR — Security Orchestration, Automation & Response
 
-> AI 驱动的安全运营自动化平台，支持多 Agent 协作、实时威胁情报、自适应 Playbook 执行和知识图谱可视化。
+> 基于多 Agent 架构的智能安全运营平台，具备 RAG 知识检索、LangGraph 动态编排、多 Agent 辩论、攻击链重建和 MCP 工具治理能力。
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
 ![Vue.js](https://img.shields.io/badge/Vue.js-3.4-42b883?logo=vuedotjs&logoColor=white)
+![LangGraph](https://img.shields.io/badge/LangGraph-1.2-ff6b35?logo=langchain&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)
-![Tests](https://img.shields.io/badge/Tests-164%20Passed-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-252%20Passed-brightgreen)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ---
 
 ## 项目简介
 
-SOAR 是一个全栈安全运营自动化平台，模拟资深安全分析师处理威胁告警的完整流程 —— 但完全自动化。当安全传感器检测到可疑活动时，系统自动编排多步响应：查询威胁情报、执行 AI 驱动的风险分析、采取遏制措施、生成事件报告。
+SOAR 是一个全栈智能安全运营自动化平台。当安全传感器检测到可疑活动时，系统通过 **LangGraph 状态机动态编排** 多个 AI Agent 协作完成威胁分析和响应——不同复杂度的告警走不同的处理路径，而非固定流水线。
 
-系统同时支持**经典线性 Playbook** 和 **AI 自适应 Playbook**（根据攻击类型自动选择响应策略）。
+### 核心创新（6 大模块）
 
-### 解决什么问题？
-
-安全运营中心（SOC）面临告警疲劳 —— 每天数千条告警，分析师人手不足。SOAR 自动化了分诊和响应流程：
-
-```
-告警接入 → 威胁情报 → 风险评估 → AI 分析 → 遏制处置 → 通知 → 报告
-```
-
-每个步骤独立可配，外部服务不可用时优雅降级，并产生结构化审计日志。
-
----
-
-## 核心功能
-
-### 多模型 AI 引擎
-- 支持 **DeepSeek、OpenAI GPT-4.1、通义千问 Qwen3、MiMo** 及任何 OpenAI 兼容 API
-- 网页端一键配置模型，支持连通性测试和自动获取模型列表
-- AI 威胁分析 + MITRE ATT&CK 技术映射
-- 自动生成 Markdown 事件报告
-- 无 LLM 时自动降级为规则引擎
-
-### 自适应 Playbook 系统
-- **7 套 Playbook 模板**，根据攻击类型自动选择：
-  - 暴力破解 → 激进阻断（阈值 60）
-  - 端口扫描 → 监控为主（阈值 75）
-  - 数据外泄 → 立即遏制（阈值 50）
-  - 钓鱼 → 报告为主（不封防火墙）
-  - DDoS → 快速响应（阈值 40）
-- 多 Agent 架构：情报 Agent → 分析 Agent → 响应 Agent
-- 每个 Agent 记录推理过程，决策完全透明
-
-### 实时威胁情报
-- **VirusTotal** IP 信誉查询（免费版：4 次/分钟）
-- **AbuseIPDB** 滥用评分（免费版：1000 次/天）
-- 多源聚合，取最差信誉评分
-- WHOIS + DNS 网络侦察
-
-### 自动告警接入
-- **Syslog** UDP 监听器（RFC 3164）
-- **Wazuh** API 轮询
-- **Suricata** EVE JSON 日志 Tail
-- 统一管理器：启动/停止/状态查询
-
-### 安全知识图谱
-- 基于 networkx 的内存图结构（IP、告警、ATT&CK 技术、风险等级）
-- 自动关联检测：共享技术的 IP 之间建立连接
-- IP 聚类分析：识别攻击活动
-- 最短路径分析：可视化攻击链
-
-### 安全加固
-- 全端点 JWT 认证保护
-- SSRF 防护（阻止访问内网地址）
-- API Key 加密存储 + 响应脱敏
-- 登录速率限制（5 分钟 10 次）
-- IP 地址、URL、密码等输入校验
-- CORS 限制来源
+| 模块 | 解决的问题 | 核心技术 |
+|------|-----------|---------|
+| **RAG 安全知识库** | 12 条硬编码知识无法覆盖真实场景 | ChromaDB 向量检索 + 完整 MITRE ATT&CK 矩阵（200+ 技术） |
+| **LangGraph 动态编排** | 固定流水线无法适应不同告警 | 状态机 + 条件分支 + 迭代精炼 + 执行路径追踪 |
+| **多 Agent 辩论** | 单一分析视角容易误判 | 威胁猎人 / 怀疑分析师 / 上下文专家三角色结构化辩论 |
+| **Agent 记忆** | 每次分析都从零开始 | 情景记忆 + 分析师反馈 + 阈值自适应校准 |
+| **攻击链重建** | 离散告警无法关联为攻击链 | 时间序列分析 + ATT&CK 战术阶段映射 + Kill Chain 检测 |
+| **MCP 工具治理** | Agent 可能误触危险操作 | 权限矩阵 + 审计日志 + 角色级工具访问控制 |
 
 ---
 
 ## 系统架构
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                 Vue 3 前端 (Vite + Pinia)                    │
-│  态势大屏 │ 告警管理 │ 调查工作台 │ 知识图谱 │ 攻击模拟 │ 模型配置 │
-└────────────────────────┬────────────────────────────────────┘
-                         │ REST API (JWT 认证)
-┌────────────────────────┴────────────────────────────────────┐
-│                    FastAPI 后端                               │
-│                                                              │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
-│  │ 经典     │  │ 自适应   │  │  多      │  │  知识    │    │
-│  │ 编排器   │  │ 编排器   │  │  Agent   │  │  图谱    │    │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └──────────┘    │
-│       │              │              │                         │
-│  ┌────┴──────────────┴──────────────┴───────────────────┐   │
-│  │              集成层                                    │   │
-│  │  威胁情报 │ 风险引擎 │ 防火墙 │ 通知 │ 侦察          │   │
-│  │  Syslog   │ Wazuh    │ Suricata                      │   │
-│  └──────────────────────────────────────────────────────┘   │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐                  │
-│  │ AI/LLM   │  │  SQLite  │  │  JWT     │                  │
-│  │ 多模型   │  │  存储    │  │  认证    │                  │
-│  └──────────┘  └──────────┘  └──────────┘                  │
-└─────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│                   Vue 3 前端 (Vite + Pinia)                    │
+│  Dashboard │ Alerts │ Workbench │ Graph │ Simulator │ Settings │
+└──────────────────────────┬────────────────────────────────────┘
+                           │ REST API (JWT 认证)
+┌──────────────────────────▼────────────────────────────────────┐
+│                     FastAPI 后端                               │
+│                                                                │
+│  ┌────────────────────────────────────────────────────────┐   │
+│  │           LangGraph 动态编排引擎                         │   │
+│  │  gather_intel ──→ analyze_threat ──→ execute_response   │   │
+│  │       │               ↕                    │            │   │
+│  │       └→ synthesize   deep_analysis (循环) ┘            │   │
+│  └────────────────────────────────────────────────────────┘   │
+│  ┌─────────────────┐  ┌─────────────┐  ┌──────────────┐      │
+│  │ 多 Agent 辩论    │  │ Agent 记忆   │  │ 攻击链重建   │      │
+│  │ 猎人⟷怀疑⟷专家  │  │ 情景+反馈   │  │ 时间+战术    │      │
+│  └─────────────────┘  └─────────────┘  └──────────────┘      │
+│  ┌────────────────────────────────────────────────────────┐   │
+│  │  RAG 知识库 (ChromaDB)  │  知识图谱 (networkx)         │   │
+│  │  MCP 工具治理           │  Agent 记忆 (SQLite)          │   │
+│  └────────────────────────────────────────────────────────┘   │
+│  ┌────────────────────────────────────────────────────────┐   │
+│  │              安全工具集成层                              │   │
+│  │  VirusTotal │ AbuseIPDB │ 防火墙 │ 邮件 │ Slack │ DNS  │   │
+│  └────────────────────────────────────────────────────────┘   │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                    │
+│  │ AI/LLM   │  │  SQLite  │  │  JWT     │                    │
+│  │ 多模型   │  │  存储    │  │  认证    │                    │
+│  └──────────┘  └──────────┘  └──────────┘                    │
+└───────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 核心功能
+
+### RAG 安全知识库
+- 基于 ChromaDB 的向量语义检索，覆盖完整 MITRE ATT&CK Enterprise 矩阵
+- 12 个安全事件案例语料库（暴力破解、DNS 隧道、APT 活动等）
+- 混合检索：向量相似度 + 关键词匹配加权融合
+- 分析时自动检索相关技术 + 相似历史事件
+
+### LangGraph 动态编排
+- 3 种编排模式：**classic**（固定 8 步）/ **adaptive**（模板选择）/ **langgraph**（动态路由）
+- 高置信度告警走短路径（3 步快速响应），低置信度走深度路径（含循环迭代）
+- 条件路由：根据 AI 分析置信度动态决定下一步
+- 执行路径追踪：每条告警记录实际走过的节点序列
+
+### 多 Agent 辩论系统
+- **威胁猎人**：激进解读，关注 IOC 和 TTP
+- **怀疑分析师**：保守解读，寻找合法解释
+- **上下文专家**：中立分析，关注环境因素
+- 三轮辩论：独立分析 → 交叉质疑 → 主持人综合裁决
+- 共识评分：量化 Agent 间的一致程度
+
+### Agent 记忆与反馈闭环
+- 情景记忆：存储每次处理的告警特征、分析结果
+- 分析师反馈：确认 / 推翻裁决 + 原因
+- 阈值校准：根据误报率自动调整 Playbook 阻断阈值
+- 相似事件检索：处理新告警时检索历史相似事件
+
+### 攻击链自动重建
+- 按源 IP 聚合告警 → 时间排序 → ATT&CK 战术映射 → 进展验证
+- 2 个 APT 模拟场景：横向移动攻击链、供应链攻击链
+- 战术阶段评分：验证是否符合 Kill Chain 自然进展
+- 时间关联评分：评估告警间的时序紧密度
+
+### MCP 工具协议与治理
+- 7 个安全工具注册为 MCP 工具（VT、AbuseIPDB、WHOIS、DNS、防火墙、知识库、知识图谱）
+- 权限矩阵：情报 Agent 只能查询，响应 Agent 才能封锁
+- 审计日志：记录每次工具调用的调用者、输入、输出、成功/失败
 
 ---
 
@@ -136,6 +137,7 @@ cd ..
 ```bash
 cp .env.example .env
 # 编辑 .env，至少设置 JWT_SECRET_KEY 为随机字符串
+# 生成方法: python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
 ### 3. 开发模式运行
@@ -155,40 +157,30 @@ cd frontend && npm run dev
 ```bash
 cp .env.example .env
 # 编辑 .env 填写生产配置
-
 docker compose up -d
 ```
 
-浏览器访问 **http://localhost:8000** — 前端由 FastAPI 自动构建并服务。
+浏览器访问 **http://localhost:8000**
 
 ---
 
-## 配置说明
+## Playbook 执行流程（LangGraph 模式）
 
-### 环境变量
-
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `JWT_SECRET_KEY` | *(自动生成)* | JWT 签名密钥 — **生产环境必须设置** |
-| `SOAR_DB_PATH` | `data/soar.db` | SQLite 数据库路径 |
-| `RISK_BLOCK_THRESHOLD` | `70` | 自动阻断风险阈值 (0-100) |
-| `CORS_ORIGINS` | `http://localhost:5173,...` | 允许的跨域来源（逗号分隔） |
-| `OPENAI_API_KEY` | *(空)* | 备用 LLM 密钥（推荐通过网页配置） |
-| `VIRUSTOTAL_API_KEY` | *(空)* | VirusTotal API 密钥 |
-| `ABUSEIPDB_API_KEY` | *(空)* | AbuseIPDB API 密钥 |
-| `SMTP_HOST/PORT/USER/PASSWORD` | *(空)* | 邮件通知配置 |
-| `SLACK_WEBHOOK_URL` | *(空)* | Slack Webhook 地址 |
-
-### 模型提供商配置
-
-LLM 通过网页端 **Settings** 页面配置（非环境变量），支持：
-
-| 提供商 | API 地址 | 推荐模型 |
-|--------|----------|----------|
-| DeepSeek | `https://api.deepseek.com/v1` | `deepseek-chat`、`deepseek-reasoner` |
-| OpenAI | `https://api.openai.com/v1` | `gpt-4.1`、`gpt-4.1-mini`、`o4-mini` |
-| 通义千问 | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-max`、`qwen-plus`、`qwen3-235b-a22b` |
-| 自定义 | 任意 OpenAI 兼容 URL | 任意模型 |
+```
+告警接入 → gather_intel（情报收集）
+              │
+              ├─ 高置信度恶意 → synthesize_decision → execute_response
+              │
+              └─ 不确定 → analyze_threat
+                              │
+                              ├─ 置信度 ≥ 0.8 → execute_response
+                              │
+                              └─ 置信度 < 0.5 → deep_analysis（最多 3 轮）
+                                                  │
+                                                  └─ execute_response
+                                                        │
+                                                  审计日志 + 报告
+```
 
 ---
 
@@ -204,67 +196,47 @@ POST /auth/login       登录获取 JWT
 ```
 POST /alerts           接入告警（传感器接口，无需认证）
 GET  /alerts           告警列表
-GET  /alerts/{id}      告警详情
 
-POST /runs             触发 Playbook（mode: classic|adaptive）
+POST /runs             触发 Playbook（mode: classic|adaptive|langgraph）
 GET  /runs             执行记录列表
 GET  /runs/{id}        执行详情（含步骤日志）
+GET  /runs/langgraph/graph  编排流程图（Mermaid 格式）
 ```
 
-### AI 与情报
+### 六大创新模块接口
 ```
-GET  /knowledge/search?q=    搜索 ATT&CK 知识库
-GET  /models                 已配置的模型列表
-POST /models                 添加模型提供商
-POST /models/fetch-available 获取提供商可用模型列表
-POST /models/{id}/test       测试连通性
-```
+# RAG 知识库
+GET  /knowledge/search?q=    RAG 语义检索 ATT&CK 知识
+GET  /knowledge/rag/status   RAG 引擎状态
+POST /knowledge/rag/reload   重新加载知识库
 
-### 基础设施
-```
-GET  /sources                告警源状态
-POST /sources/{name}/start   启动告警源 (syslog/wazuh/suricata)
-POST /sources/{name}/stop    停止告警源
+# 多 Agent 辩论
+GET  /debates                辩论记录列表
+POST /debates/run/{alert_id} 执行多 Agent 辩论
 
-GET  /graph                  知识图谱数据
+# Agent 记忆
+POST /feedback/{run_id}      提交分析师反馈
+GET  /feedback/stats         反馈统计
+GET  /feedback/memory/stats  记忆统计
+
+# 攻击链
+GET  /chains                 所有攻击链
+GET  /chains/{ip}            指定 IP 的攻击链
+
+# MCP 工具治理
+GET  /mcp/tools              工具注册表
+GET  /mcp/governance         权限矩阵
+GET  /mcp/audit              审计日志
+POST /mcp/call               执行工具（带权限检查）
+
+# 知识图谱
+GET  /graph                  图谱数据
 GET  /graph/clusters         IP 聚类
 GET  /graph/techniques       ATT&CK 技术频率
-POST /graph/rebuild          重建图谱
 
-GET  /simulator/scenarios    攻击场景列表
+# 攻击模拟器
+GET  /simulator/scenarios    场景列表（8 个场景）
 POST /simulator/run/{name}   执行模拟场景
-```
-
----
-
-## Playbook 执行流程
-
-```
-┌─────────────┐
-│  告警输入    │ ← 传感器 / Syslog / Wazuh / Suricata / API
-└──────┬──────┘
-       ▼
-┌──────────────┐     ┌─────────────────────┐
-│ Playbook     │────▶│ 模板选择            │ ← 仅自适应模式
-│ 选择器       │     │ (7 种攻击模式)      │
-└──────┬──────┘     └─────────────────────┘
-       ▼
-┌──────────────┐
-│  情报 Agent  │ ← VirusTotal + AbuseIPDB + WHOIS + DNS
-└──────┬──────┘
-       ▼
-┌──────────────┐
-│  分析 Agent  │ ← 规则引擎 + LLM (DeepSeek/GPT/Qwen)
-│              │   + MITRE ATT&CK 知识库
-└──────┬──────┘
-       ▼
-┌──────────────┐
-│  响应 Agent  │ ← 防火墙阻断 + 邮件 + Slack + 报告生成
-└──────┬──────┘
-       ▼
-┌──────────────┐
-│  审计日志    │ ← 完整决策链路 + Agent 推理记录
-└──────────────┘
 ```
 
 ---
@@ -272,21 +244,19 @@ POST /simulator/run/{name}   执行模拟场景
 ## 测试
 
 ```bash
-# 运行全部测试（164 个）
-.venv/Scripts/python -m pytest tests/ -v
+# 运行全部测试（252 个）
+python -m pytest tests/ -v
 
-# 运行指定测试文件
-.venv/Scripts/python -m pytest tests/test_orchestrator.py -v
+# 按模块运行
+python -m pytest tests/test_rag_engine.py -v           # RAG 知识库（18 个）
+python -m pytest tests/test_langgraph_orchestrator.py -v  # LangGraph 编排（14 个）
+python -m pytest tests/test_debate.py -v               # 多 Agent 辩论（10 个）
+python -m pytest tests/test_memory.py -v               # Agent 记忆（9 个）
+python -m pytest tests/test_chain_detector.py -v       # 攻击链重建（12 个）
+python -m pytest tests/test_mcp.py -v                  # MCP 治理（25 个）
 ```
 
-测试覆盖：
-- API 端点（认证、CRUD、权限控制）
-- Playbook 编排（经典 + 自适应）
-- 多 Agent 系统（情报、分析、响应）
-- 知识图谱操作
-- 威胁情报聚合
-- 攻击模拟器场景
-- 输入校验与安全控制
+测试覆盖：252 个测试，20 个测试文件，覆盖全部模块。
 
 ---
 
@@ -296,48 +266,52 @@ POST /simulator/run/{name}   执行模拟场景
 SOAR/
 ├── backend/
 │   ├── app/
-│   │   ├── agents/           # 多 Agent 系统
-│   │   │   ├── orchestrator.py          # 经典 8 步 Playbook
-│   │   │   ├── adaptive_orchestrator.py # 自适应 Playbook
-│   │   │   ├── intelligence_agent.py    # 情报 + 侦察
-│   │   │   ├── analysis_agent.py        # 风险 + AI 分析
-│   │   │   ├── response_agent.py        # 处置 + 通知
-│   │   │   └── playbook_selector.py     # 7 套攻击模板
-│   │   ├── ai/               # AI/LLM 引擎
-│   │   │   ├── llm_client.py           # 多模型客户端
-│   │   │   ├── analyzer.py             # 威胁分析
-│   │   │   ├── knowledge_base.py       # ATT&CK 知识库
-│   │   │   └── report_generator.py     # 报告生成
-│   │   ├── graph/            # 知识图谱
-│   │   │   └── knowledge_graph.py      # networkx 图引擎
-│   │   ├── ingestion/        # 告警源接入
-│   │   │   ├── syslog_listener.py      # UDP Syslog
-│   │   │   ├── wazuh_client.py         # Wazuh API
-│   │   │   └── suricata_tail.py        # EVE JSON Tail
-│   │   ├── integrations/     # 外部服务连接器
-│   │   │   ├── threat_intel.py         # VT + AbuseIPDB
-│   │   │   ├── risk_assessor.py        # 风险评分
-│   │   │   ├── recon.py               # WHOIS + DNS
-│   │   │   ├── notify_email.py        # 邮件通知
-│   │   │   └── notify_slack.py        # Slack 通知
-│   │   ├── routes/           # API 端点（10 个路由）
-│   │   ├── simulator/        # 攻击模拟器
-│   │   ├── auth.py           # JWT + bcrypt 认证
-│   │   ├── storage.py        # SQLite 存储层
-│   │   ├── settings.py       # 环境配置
-│   │   └── main.py           # FastAPI 应用入口
+│   │   ├── agents/              # Agent 系统
+│   │   │   ├── orchestrator.py            # 经典编排器
+│   │   │   ├── adaptive_orchestrator.py   # 自适应编排器
+│   │   │   ├── langgraph_orchestrator.py  # LangGraph 动态编排
+│   │   │   ├── state.py                   # 编排状态定义
+│   │   │   ├── nodes/                     # LangGraph 节点
+│   │   │   ├── debate/                    # 多 Agent 辩论系统
+│   │   │   ├── intelligence_agent.py      # 情报 Agent
+│   │   │   ├── analysis_agent.py          # 分析 Agent
+│   │   │   └── response_agent.py          # 响应 Agent
+│   │   ├── ai/                  # AI 引擎
+│   │   │   ├── llm_client.py              # 多模型客户端
+│   │   │   ├── analyzer.py                # 威胁分析
+│   │   │   ├── rag_engine.py              # RAG 向量检索
+│   │   │   ├── knowledge_base.py          # ATT&CK 知识库
+│   │   │   ├── attack_data_loader.py      # ATT&CK 数据加载
+│   │   │   └── incident_corpus.py         # 安全事件语料
+│   │   ├── graph/               # 知识图谱
+│   │   │   ├── knowledge_graph.py         # 图引擎
+│   │   │   ├── chain_detector.py          # 攻击链检测
+│   │   │   └── temporal_reasoning.py      # 时间推理
+│   │   ├── memory/              # Agent 记忆
+│   │   │   ├── episodic_memory.py         # 情景记忆
+│   │   │   └── feedback_loop.py           # 反馈闭环
+│   │   ├── mcp/                 # MCP 工具协议
+│   │   │   ├── server.py                  # MCP 服务端
+│   │   │   ├── tool_registry.py           # 工具注册
+│   │   │   ├── governance.py              # 权限治理
+│   │   │   └── audit.py                   # 审计日志
+│   │   ├── integrations/        # 安全工具集成
+│   │   ├── ingestion/           # 告警接入
+│   │   ├── routes/              # API 端点（14 个路由）
+│   │   ├── simulator/           # 攻击模拟器（8 个场景）
+│   │   └── ...
 │   └── run.py
-├── frontend/                 # Vue 3 + Vite SPA
+├── frontend/                    # Vue 3 + Vite SPA
 │   └── src/
-│       ├── views/            # 10 个页面视图
-│       ├── components/       # 可复用 UI 组件
-│       ├── stores/           # Pinia 状态管理
-│       ├── i18n/             # 中英文双语
-│       └── api/              # Axios HTTP 客户端
-├── tests/                    # 164 个测试用例（18 个文件）
-├── Dockerfile                # 多阶段构建
-├── docker-compose.yml        # 生产部署配置
-└── .env.example              # 配置模板
+│       ├── views/               # 10 个页面
+│       ├── components/          # UI 组件
+│       ├── stores/              # Pinia 状态管理
+│       └── i18n/                # 中英文双语
+├── tests/                       # 252 个测试（20 个文件）
+├── Dockerfile                   # 多阶段构建
+├── docker-compose.yml
+├── requirements.txt
+└── .env.example                 # 配置模板
 ```
 
 ---
@@ -348,36 +322,30 @@ SOAR/
 |------|------|------|
 | 后端 | FastAPI + Pydantic | REST API + 自动校验 |
 | 数据库 | SQLite | 零配置持久化 |
+| 向量库 | ChromaDB | RAG 语义检索 |
+| 编排 | LangGraph | 状态机动态编排 |
 | 认证 | JWT + bcrypt | Token 认证 |
 | AI/LLM | OpenAI SDK（多提供商） | 威胁分析 + 报告生成 |
 | 图谱 | networkx | 内存知识图谱 |
 | 前端 | Vue 3 + Vite + Pinia | 响应式 SPA |
-| 图表 | Chart.js + 自定义 SVG | 风险分布 + 动作图表 |
-| 可视化 | vis-network | 交互式知识图谱 |
+| 可视化 | vis-network + Chart.js | 图谱 + 图表 |
 | 国际化 | vue-i18n | 中英文双语 |
-| HTTP | httpx | 外部 API 调用 |
-| 部署 | Docker + Docker Compose | 容器化生产部署 |
+| 部署 | Docker + Docker Compose | 容器化部署 |
 
 ---
 
-## 应用场景
+## 配置说明
 
-### SOC 分析师工作台
-- 赛博朋克风格实时告警监控大屏
-- 一键执行 Playbook，实时查看步骤进度
-- AI 驱动的威胁分析 + ATT&CK 技术映射
-- 知识图谱可视化攻击关联
+LLM 通过网页端 **Settings** 页面配置，支持：
 
-### 自动化事件响应
-- Syslog/SIEM 集成自动接入告警
-- 根据攻击类型自适应选择 Playbook
-- 高风险事件自动防火墙阻断
-- 邮件 + Slack 关键事件通知
+| 提供商 | API 地址 | 推荐模型 |
+|--------|----------|----------|
+| DeepSeek | `https://api.deepseek.com/v1` | `deepseek-chat` |
+| OpenAI | `https://api.openai.com/v1` | `gpt-4.1`、`o4-mini` |
+| 通义千问 | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-max` |
+| 自定义 | 任意 OpenAI 兼容 URL | 任意模型 |
 
-### 安全测试与培训
-- 6 种内置攻击模拟场景（暴力破解、端口扫描、DDoS、钓鱼、数据外泄、横向移动）
-- 多模型 AI 对比测试（同一告警用 DeepSeek / GPT / Qwen 分析）
-- 完整决策审计链路 + Agent 推理日志
+完整环境变量参见 `.env.example`。
 
 ---
 
@@ -390,8 +358,9 @@ MIT License. 详见 [LICENSE](LICENSE)。
 ## 致谢
 
 - [MITRE ATT&CK](https://attack.mitre.org/) — 威胁分类框架
+- [LangGraph](https://langchain-ai.github.io/langgraph/) — 状态机编排框架
+- [ChromaDB](https://www.trychroma.com/) — 向量数据库
 - [VirusTotal](https://www.virustotal.com/) — 威胁情报 API
 - [AbuseIPDB](https://www.abuseipdb.com/) — IP 滥用数据库
 - [FastAPI](https://fastapi.tiangolo.com/) — Python Web 框架
 - [Vue.js](https://vuejs.org/) — 前端框架
-- [networkx](https://networkx.org/) — 图分析库

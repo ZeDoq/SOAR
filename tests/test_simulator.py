@@ -8,7 +8,7 @@ class TestScenarios:
         names = get_scenario_names()
         assert "brute_force" in names
         assert "ddos" in names
-        assert len(names) == 6
+        assert len(names) == 8
 
     def test_get_scenario(self):
         s = get_scenario("brute_force")
@@ -50,7 +50,7 @@ class TestRunner:
 
     def test_run_all_scenarios(self):
         result = run_all_scenarios()
-        assert result["scenarios_run"] == 6
+        assert result["scenarios_run"] == 8
         assert "brute_force" in result["results"]
         assert "ddos" in result["results"]
 
@@ -61,7 +61,7 @@ class TestSimulatorRoutes:
         assert resp.status_code == 200
         data = resp.json()
         assert "scenarios" in data
-        assert len(data["scenarios"]) == 6
+        assert len(data["scenarios"]) == 8
 
     def test_trigger_scenario(self, client):
         resp = client.post("/simulator/run/brute_force?auto_run=false")

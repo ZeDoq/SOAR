@@ -21,15 +21,30 @@
 import { ref, computed } from 'vue'
 import { marked } from 'marked'
 
+// 配置 marked 净化 HTML，防止 XSS
+marked.setOptions({
+  headerIds: false,
+  mangle: false,
+})
+
 const props = defineProps({
   content: { type: String, default: '' },
   runId: { type: [Number, String], default: 'unknown' },
 })
 const copied = ref(false)
 
+function sanitizeHtml(html) {
+  // 移除所有 script/event handler 标签和属性
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/\son\w+\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/javascript:/gi, '')
+}
+
 const renderedHtml = computed(() => {
   if (!props.content) return ''
-  return marked(props.content, { breaks: true })
+  const raw = marked.parse(props.content, { breaks: true })
+  return sanitizeHtml(raw)
 })
 
 async function copyReport() {
